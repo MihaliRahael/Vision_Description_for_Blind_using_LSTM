@@ -2,7 +2,7 @@
 
 ## **Problem Statement**
 
-\*\* Receive an image as input and produces a relevant caption or short description for that\*\*
+ Receive an image as input and produces a relevant caption or short description for that
 
 ## **Data collection**
 
@@ -67,7 +67,7 @@ ixtoword[k] -\> returns the word whose index is ‘k’
 
 -   Images are nothing but input (X) to our model and must be given in the form of a fixed sized vector. For this purpose, we opt for transfer learning by using the InceptionV3 model, trained on Imagenet dataset to perform image classification on 1000 different classes of images. However, our purpose here is not to classify the image but just get fixed-length informative vector for each image. This process is called automatic feature engineering. Hence, we just remove the last softmax layer from the model and extract a 2048 length vector (bottleneck features) for every image as follows:
 
-    ![](media/3e1887aac238c6673ff64ef3cba36f40.png)
+![image](https://user-images.githubusercontent.com/106816732/213872813-d1e75e84-8952-4873-b9ea-7733513d5720.png)
 
 -   Once we created the model, we pass every image to this model to get the corresponding 2048 length feature vector
 -   Save all the bottleneck train features in a Python dictionary and save it on the disk using Pickle file, namely “encoded_train_images.pkl” whose keys are image names and values are corresponding 2048 length feature vector.
@@ -79,15 +79,15 @@ This stage is very important since we need to prepare the data in a manner which
 
 Consider we have 3 images and their 3 corresponding captions as follows:
 
-![](media/c7e97dda1f43c59420c2bcd7dd3fd83f.jpeg)
+![image](https://user-images.githubusercontent.com/106816732/213872853-932c068e-84ad-41b8-940a-3c06e91fdb16.png)
 
 *(Train image 1) Caption -\> The black cat sat on grass*
 
-![](media/f9c6e599bf3636f7a714b166b31955eb.jpeg)
+![image](https://user-images.githubusercontent.com/106816732/213872864-cf16d0a0-586c-4085-9579-95ddd2d45518.png)
 
 *(Train image 2) Caption -\> The white cat is walking on road*
 
-![](media/b127a0325f5f139bb71f774bbc671361.jpeg)
+![image](https://user-images.githubusercontent.com/106816732/213872872-208e8803-54f4-454f-a2ee-2d15f792427a.png)
 
 *(Test image) Caption -\> The black cat is walking on grass*
 
@@ -129,13 +129,13 @@ And so on…
 
 Thus, we can summarize the data matrix for one image and its corresponding caption as follows:
 
-![](media/3dc1f735614bc39b803fa889313ad127.jpeg)
+![image](https://user-images.githubusercontent.com/106816732/213872900-24654a34-071e-4e50-8371-0dbbc6c9f7e6.png)
 
 *Data points corresponding to one image and its caption*
 
 It must be noted that, one image+caption is not a single data point but are multiple data points depending on the length of the caption. Similarly if we consider both the images and their captions, our data matrix will then look as follows:
 
-![](media/4286f6d1f85811ab520eeb5837c07f72.jpeg)
+![image](https://user-images.githubusercontent.com/106816732/213872911-30904420-5f24-464b-9f89-6907658c5366.png)
 
 *Data Matrix for both the images and captions*
 
@@ -143,7 +143,7 @@ So in every data point, it’s not just the image which goes as input to the sys
 
 However, we have already discussed that we are not going to pass the actual English text of the caption, rather we are going to pass the sequence of indices where each index represents a unique word. Since we have already created an index for each word, let’s now replace the words with their indices and understand how the data matrix will look like:
 
-![](media/95bf04873720a09f6172d8f734c83a83.jpeg)
+![image](https://user-images.githubusercontent.com/106816732/213872924-640afd0f-b4c5-4e4e-b696-bcf604099474.png)
 
 *Data matrix after replacing the words by their indices*
 
@@ -151,7 +151,7 @@ Since we would be doing **batch processing**, we need to make sure that each seq
 
 The data matrix will then look as follows:
 
-![](media/98e2db67111ffcfe7026cfbc0581cd77.jpeg)
+![image](https://user-images.githubusercontent.com/106816732/213872937-6ff5c8ef-c8dd-47cf-a7c7-ac12971d0a78.png)
 
 *Appending zeros to each sequence to make them all of same length 34*
 
@@ -161,7 +161,7 @@ However, there is a big catch in this way of dataset preparation. In the above e
 
 Compute the size of the data matrix:
 
-![](media/8c093445fd41d8341f60652c577d098e.jpeg)
+![image](https://user-images.githubusercontent.com/106816732/213872946-9e32c160-8f43-40a0-bff5-0b42017a8d29.png)
 
 Size of the data matrix = n\*m
 
@@ -194,59 +194,39 @@ This means that we do not require to store the entire dataset in the memory at o
 -   As already stated above, we will map the every word (index) to a 200-long vector and for this purpose, we will use a pre-trained GLOVE Model
 -   Now, for all the 1652 unique words in our vocabulary, we create an embedding matrix which will be loaded into the model before training.
 -   Notice that since we are using a pre-trained embedding layer, we need to freeze it (trainable = False), before training the model, so that it does not get updated during the backpropagation.
-
-    \`\`\`
-
+    ```
     model.layers[2].set_weights([embedding_matrix])  
     model.layers[2].trainable = False
-
-    \`\`\`
+    ```
 
 ## **Model Architecture**
 
 -   Since the input consists of two parts, an image vector and a partial caption, we cannot use the Sequential API provided by the Keras library. For this reason, we use the Functional API which allows us to create Merge Models.
 
-![](media/e6f8f968efa76944eada97f35ecb1c99.jpeg)
+![image](https://user-images.githubusercontent.com/106816732/213873000-17ac50b0-9b4a-411f-9abb-a1cfadf7c48a.png)
 
 We define the model as follows:
-
-\`\`\`
-
-\# image feature extractor model
-
+```
+# image feature extractor model
 inputs1 = Input(shape=(2048,))
-
 fe1 = Dropout(0.5)(inputs1)
-
 fe2 = Dense(256, activation='relu')(fe1)
-
-\# partial caption sequence model
-
+# partial caption sequence model
 inputs2 = Input(shape=(max_length,))
-
 se1 = Embedding(vocab_size, embedding_dim, mask_zero=True)(inputs2)
-
 se2 = Dropout(0.5)(se1)
-
 se3 = LSTM(256)(se2)
-
-\# decoder (feed forward) model
-
+# decoder (feed forward) model
 decoder1 = add([fe2, se3])
-
 decoder2 = Dense(256, activation='relu')(decoder1)
-
 outputs = Dense(vocab_size, activation='softmax')(decoder2)
-
 \# merge the two input models
-
 model = Model(inputs=[inputs1, inputs2], outputs=outputs)
-
-\`\`\`
+```
 
 The below plot helps to visualize the structure of the network and better understand the two streams of input:
 
-![](media/af2a0a2c0c07fe45b2066279cbd4e713.png)
+![image](https://user-images.githubusercontent.com/106816732/213873053-33f86a88-3357-43b0-add9-2bd8a21ef023.png)
 
 Finally the weights of the model will be updated through backpropagation algorithm and the model will learn to output a word, given an image feature vector and a partial caption. So in summary, we have:
 
@@ -260,7 +240,7 @@ Output -\> An appropriate word, next in the sequence of partial caption provided
 
 Now we will understand how do we test (infer) our model by passing in new images, i.e. how can we generate a caption for a new test image. Recall that in the example where we saw how to prepare the data, we used only first two images and their captions. Now let’s use the third image and try to understand how we would like the caption to be generated. The third image vector and caption were as follows:
 
-![](media/b127a0325f5f139bb71f774bbc671361.jpeg)
+![image](https://user-images.githubusercontent.com/106816732/213873067-5fc6dc79-4539-4576-a187-68c76222abd8.png)
 
 *Caption -\> the black cat is walking on grass*
 
@@ -280,7 +260,7 @@ But wait, here the model generates a 12-long vector in the sample example (while
 
 If the model is trained well, we must expect the probability for the word “the” to be maximum:
 
-![](media/d577f3a530f9f68668e30b64ce3781c7.png)
+![image](https://user-images.githubusercontent.com/106816732/213873077-5f1233c1-7ec2-42f5-9c52-44af59e2aaf0.png)
 
 This is called as **Maximum Likelihood Estimation (MLE)** i.e. we select that word which is most likely according to the model for the given input. And sometimes this method is also called as **Greedy Search**, as we greedily select the word with maximum probability.
 
@@ -290,7 +270,7 @@ Input: Image vector + “startseq the”
 
 Expected Output word: “black”
 
-![](media/a0174b49dc874a7340458e07213bf8b0.png)
+![image](https://user-images.githubusercontent.com/106816732/213873082-b25d7d6a-c488-4dfc-840b-85f33e3cca6d.png)
 
 Likewise at Iteration 8:
 
@@ -298,7 +278,7 @@ Input: Image vector + “startseq the black cat is walking on grass”
 
 Expected Output word: “endseq”
 
-![](media/e5f21c0374fd2346ed5ab44d5fa88f14.png)
+![image](https://user-images.githubusercontent.com/106816732/213873097-e95121da-7c9d-4159-b04e-af520b2723c6.png)
 
 This is where we stop the iterations. So we stop when either of the below two conditions is met:
 
@@ -308,44 +288,30 @@ This is where we stop the iterations. So we stop when either of the below two co
 If any of the above conditions is met, we break the loop and report the generated caption as the output of the model for the given image.
 
 Code for greedy Search
-
-\`\`\`
-
+```
 def greedySearch(photo):
-
-in_text = 'startseq'
-
-for i in range(max_length):
-
-sequence = [wordtoix[w] for w in in_text.split() if w in wordtoix]
-
-sequence = pad_sequences([sequence], maxlen=max_length)
-
-yhat = model.predict([photo,sequence], verbose=0)
-
-yhat = np.argmax(yhat)
-
-word = ixtoword[yhat]
-
-in_text += ' ' + word
-
-if word == 'endseq':
-
-break
-
-final = in_text.split()
-
-final = final[1:-1]
-
-final = ' '.join(final)
-
-return final
-
-\`\`\`
+    in_text = 'startseq'
+    for i in range(max_length):
+        sequence = [wordtoix[w] for w in in_text.split() if w in wordtoix]
+        sequence = pad_sequences([sequence], maxlen=max_length)
+        yhat = model.predict([photo,sequence], verbose=0)
+        yhat = np.argmax(yhat)
+        word = ixtoword[yhat]
+        in_text += ' ' + word
+        if word == 'endseq':
+            break
+    final = in_text.split()
+    final = final[1:-1]
+    final = ' '.join(final)
+    return final
+```
 
 ## **Evaluation**
 
 To understand how good the model is, let’s try to generate captions on images from the test dataset.
+<img width="343" alt="image" src="https://user-images.githubusercontent.com/106816732/213873228-6306949f-16d7-426e-bb02-7669bc2c09b3.png">
+<img width="285" alt="image" src="https://user-images.githubusercontent.com/106816732/213873242-b12dce11-ca00-48a3-b6b4-55eee72ddf4e.png">
+<img width="294" alt="image" src="https://user-images.githubusercontent.com/106816732/213873264-15dcc188-c9a7-4828-bc22-c4fa21eede3e.png">
 
 ## **Inferences and Future work**
 
